@@ -25,8 +25,9 @@ const HomePage = () => {
             },
           })}
         >
-          Neon DB
+          Authentication System
         </Typography>
+
         <Typography
           sx={(theme) => ({
             textAlign: "center",
@@ -36,8 +37,10 @@ const HomePage = () => {
             },
           })}
         >
-          This app is made for Neon DB Challenge Which is an awesome Serverless
-          DB for postgresql database.
+          A complete authentication implementation built with React, Node.js,
+          and Express.js, powered by Neon Serverless PostgreSQL. Explore a
+          full-stack authentication solution designed with secure user
+          authentication, token management, and session handling.
         </Typography>
       </Box>
     </Box>

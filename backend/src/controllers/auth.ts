@@ -8,7 +8,7 @@ import {
 } from "../utils/validators/user/user.js";
 import { pool } from "../db/db.js";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import {
   ACCESS_TOKEN_EXPIRY,
   ACCESS_TOKEN_NAME,
@@ -38,10 +38,70 @@ import { getLinkedinOauthURL } from "../utils/oauth/linkedin/getLinkedinOAuthURL
 import { getGoogleUser } from "../utils/oauth/google/getGoogleUser.js";
 import axios from "axios";
 
+/**
+ * Typed JWT payload used across the auth flow.
+ */
+interface JwtUserPayload extends JwtPayload {
+  id: string;
+  email?: string;
+  firstname?: string;
+  lastname?: string;
+  loginplatform?: string;
+  isverified?: boolean;
+  created_at?: string;
+}
+
+/**
+ * Type guard to narrow `string | JwtPayload` down to our expected payload shape.
+ */
+const isJwtUserPayload = (
+  decoded: string | JwtPayload | null,
+): decoded is JwtUserPayload => {
+  return (
+    decoded !== null &&
+    typeof decoded === "object" &&
+    typeof (decoded as JwtUserPayload).id === "string"
+  );
+};
+
+/**
+ * Safely verify a JWT and return a typed payload.
+ * Throws if the token is invalid or doesn't contain an id.
+ */
+const verifyJwtAsUserPayload = (
+  token: string,
+  secret: string,
+): JwtUserPayload => {
+  const decoded = jwt.verify(token, secret);
+  if (!isJwtUserPayload(decoded)) {
+    throw new CustomError("Invalid token payload", 401);
+  }
+  return decoded;
+};
+
+/**
+ * Safely decode a JWT and return a typed payload.
+ * Throws if the token payload is invalid.
+ */
+const decodeJwtAsUserPayload = (token: string): JwtUserPayload => {
+  const decoded = jwt.decode(token);
+  if (!isJwtUserPayload(decoded)) {
+    throw new CustomError("Invalid token payload", 401);
+  }
+  return decoded;
+};
+
+const getFirstError = (errors: Record<string, unknown> | object): string => {
+  const keys = Object.keys(errors);
+  if (keys.length === 0) return "Invalid input";
+  const value = (errors as Record<string, unknown>)[keys[0]];
+  return typeof value === "string" ? value : "Invalid input";
+};
+
 export const signup = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const { firstname, lastname, email, password } = req.body;
 
@@ -52,11 +112,11 @@ export const signup = async (
       firstname,
       lastname,
       email,
-      password
+      password,
     );
 
     if (!valid) {
-      throw new CustomError(errors[Object.keys(errors)[0]], 400);
+      throw new CustomError(getFirstError(errors), 400);
     }
 
     const query = "SELECT * FROM users WHERE email = $1";
@@ -92,7 +152,7 @@ export const signup = async (
 
       const createUserResult = await client.query(
         createNewUserQuery,
-        createNewUserValues
+        createNewUserValues,
       );
 
       savedUser = createUserResult.rows[0];
@@ -115,7 +175,7 @@ export const signup = async (
 
       const updateUserResult = await client.query(
         updateUserIfExistsQuery,
-        updateUserIfExistsValues
+        updateUserIfExistsValues,
       );
 
       savedUser = updateUserResult.rows[0];
@@ -138,16 +198,11 @@ export const signup = async (
             `;
     await sendEmail(to, subject, html);
 
-    //    console.log("ACCOUNT ACTIVATION TOKEN");
-    //    console.log(token);
-
     res.status(201).json({
       message:
         "Please verify your account using a verification email that has been sent to your email.",
     });
   } catch (error) {
-    //    console.log(error);
-
     return next(error);
   } finally {
     client.release();
@@ -157,7 +212,7 @@ export const signup = async (
 export const verifyAccount = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const client = await pool.connect();
   try {
@@ -165,9 +220,9 @@ export const verifyAccount = async (
     if (!token) {
       throw new CustomError("Unathorized", 401);
     }
-    let verified;
+    let verified: JwtUserPayload;
     try {
-      verified = jwt.verify(token, JWT_ACCOUNT_ACTIVATION);
+      verified = verifyJwtAsUserPayload(token, JWT_ACCOUNT_ACTIVATION);
     } catch (error) {
       console.log(error);
 
@@ -202,8 +257,6 @@ export const verifyAccount = async (
       throw new CustomError("Expired link. Signup again", 500);
     }
   } catch (error) {
-    //    console.log(error);
-
     return next(error);
   } finally {
     client.release();
@@ -213,7 +266,7 @@ export const verifyAccount = async (
 export const signin = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const LOGIN_PLATFORM = "native";
   const client = await pool.connect();
@@ -222,7 +275,7 @@ export const signin = async (
     const { errors, valid } = signinUserValidator(email, password);
 
     if (!valid) {
-      throw new CustomError(errors[Object.keys(errors)[0]], 400);
+      throw new CustomError(getFirstError(errors), 400);
     }
 
     const query = "SELECT * FROM users WHERE email = $1";
@@ -243,7 +296,7 @@ export const signin = async (
     if (existingUser.loginplatform !== LOGIN_PLATFORM) {
       throw new CustomError(
         "Try login with " + existingUser.loginplatform,
-        409
+        409,
       );
     }
 
@@ -260,14 +313,14 @@ export const signin = async (
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY).toISOString();
     const ipAddress =
       req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const userAgent = req.headers["user-agent"];
+    const userAgent = req.headers["user-agent"] as string;
     const isMobile = /mobile/i.test(userAgent);
     const isTablet = /tablet/i.test(userAgent);
     const isDesktop = !isMobile && !isTablet;
     const osMatch = userAgent.match(/\(([^)]+)\)/);
     const osInfo = osMatch ? osMatch[1] : "Unknown OS";
     const browserMatch = userAgent.match(
-      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/
+      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/,
     );
     const browserInfo = browserMatch
       ? `${browserMatch[1]} ${browserMatch[2]}`
@@ -337,15 +390,6 @@ export const signin = async (
       options2.secure = true;
     }
 
-    //    console.log("Access_Token");
-    //    console.log("-------------------------------------");
-    //    console.log(accessToken);
-    //    console.log("-------------------------------------");
-    //    console.log("Refresh_Token");
-    //    console.log("-------------------------------------");
-    //    console.log(refreshToken);
-    //    console.log("-------------------------------------");
-
     res
       .status(200)
       .cookie(ACCESS_TOKEN_NAME, accessToken, options1)
@@ -365,18 +409,19 @@ export const signin = async (
 export const refreshAccessToken = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const client = await pool.connect();
   try {
-    // //    console.log(req.cookies);
-
     const refresh_token = req.cookies[REFRESH_TOKEN_NAME];
     if (!refresh_token) {
       throw new CustomError("No Token Found", 401);
     }
 
-    const verified = jwt.verify(refresh_token, REFRESH_TOKEN_SECRET);
+    const verified = verifyJwtAsUserPayload(
+      refresh_token,
+      REFRESH_TOKEN_SECRET,
+    );
 
     let existingUser;
     let existingUserId;
@@ -387,27 +432,27 @@ export const refreshAccessToken = async (
         WHERE id = $1
       `;
 
-      // const existingUserQuery = `
-      // SELECT *
-      // FROM users
-      // WHERE EXISTS (
-      //   SELECT 1
-      //   FROM unnest(auth) AS auth_obj
-      //   WHERE auth_obj->>'refresh_token' = $1
-      // )
-      // `;
       const existingUserValues = [verified.id];
       const existingUserResult = await client.query(
         existingUserQuery,
-        existingUserValues
+        existingUserValues,
       );
       existingUserId = existingUserResult.rows[0].id;
-      existingUser = existingUserResult.rows[0].auth.filter(async (d) => {
-        const isMatch = await bcrypt.compare(refresh_token, d.refresh_token);
-        return isMatch;
-      })[0];
+      const authSessions = existingUserResult.rows[0].auth ?? [];
 
-      // //    console.log("existingUser", existingUser);
+      existingUser = undefined;
+
+      for (const session of authSessions) {
+        const isMatch = await bcrypt.compare(
+          refresh_token,
+          session.refresh_token,
+        );
+
+        if (isMatch) {
+          existingUser = session;
+          break;
+        }
+      }
 
       if (!existingUser) {
         throw new CustomError("You are not allowed here", 401);
@@ -436,7 +481,6 @@ export const refreshAccessToken = async (
     }
 
     const accessToken = generateAccessToken(existingUserId);
-    // //    console.log("Final Ccess Token: ", accessToken);
 
     res
       .status(200)
@@ -447,8 +491,6 @@ export const refreshAccessToken = async (
         message: "Refreshed The Access Token",
       });
   } catch (error) {
-    //    console.log(error);
-
     return next(error);
   } finally {
     client.release();
@@ -458,22 +500,20 @@ export const refreshAccessToken = async (
 export const logOut = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const client = await pool.connect();
   try {
     const access_token = req.cookies[ACCESS_TOKEN_NAME];
     const refresh_token = req.cookies[REFRESH_TOKEN_NAME];
     if (access_token && refresh_token) {
-      let verified;
+      let verified: JwtUserPayload | undefined;
       try {
-        verified = jwt.verify(refresh_token, REFRESH_TOKEN_SECRET);
+        verified = verifyJwtAsUserPayload(refresh_token, REFRESH_TOKEN_SECRET);
       } catch (error) {
         console.log(verified);
         console.log(error);
-        const decoded = jwt.decode(refresh_token);
-
-        //    console.log(decoded);
+        const decoded = decodeJwtAsUserPayload(refresh_token);
 
         const query = `
           SELECT *
@@ -490,7 +530,7 @@ export const logOut = async (
         for (let i = 0; i < authValue.length; i++) {
           const isValid = await bcrypt.compare(
             refresh_token,
-            authValue[i].refresh_token
+            authValue[i].refresh_token,
           );
           if (!isValid) {
             newAuthArray.push(authValue[i]);
@@ -506,9 +546,6 @@ export const logOut = async (
         const updateValues = [newAuthArray, decoded.id];
 
         await client.query(updateQuery, updateValues);
-        // if (error instanceof TokenExpiredError) {
-        //    console.log(error.message);
-        //    console.log("Refresh token expired");
 
         res.cookie(ACCESS_TOKEN_NAME, "none", {
           expires: new Date(Date.now() - 1000),
@@ -527,9 +564,7 @@ export const logOut = async (
 
       // Continue with logout process if token is still valid
 
-      const decoded = jwt.decode(refresh_token);
-
-      //    console.log("decoeded", decoded);
+      const decoded = decodeJwtAsUserPayload(refresh_token);
 
       const query = `
           SELECT *
@@ -540,8 +575,6 @@ export const logOut = async (
 
       const result = await client.query(query, value);
 
-      // //    console.log("result ----> ", result);
-
       const authValue = result.rows[0].auth;
 
       const finalAuthArray = [];
@@ -549,7 +582,7 @@ export const logOut = async (
       for (let i = 0; i < authValue.length; i++) {
         const isValid = await bcrypt.compare(
           refresh_token,
-          authValue[i].refresh_token
+          authValue[i].refresh_token,
         );
         if (!isValid) {
           finalAuthArray.push(authValue[i]);
@@ -595,31 +628,31 @@ export const logOut = async (
       message: "Logged Out Successfully",
     });
   } catch (error) {
-    //    console.log(error);
     return next(error);
   } finally {
     client.release();
   }
 };
 
-interface RequestWithPayload extends Request {
-  id: string;
-}
-
 export const me = async (
-  req: RequestWithPayload,
+  req: Request,
   res: Response,
-  next: NextFunction
-) => {
-  //    console.log("req.id", req.id);
-
+  next: NextFunction,
+): Promise<void> => {
   const client = await pool.connect();
+
   try {
-    const query = `SELECT 
-                    id, email, firstname, lastname, isverified, loginplatform, created_at 
-                  FROM users 
-                  WHERE id = $1
-                `;
+    if (!req.id) {
+      throw new CustomError("Unauthorized", 401);
+    }
+
+    const query = `
+      SELECT
+        id, email, firstname, lastname, isverified, loginplatform, created_at
+      FROM users
+      WHERE id = $1
+    `;
+
     const values = [req.id];
 
     const result = await client.query(query, values);
@@ -632,8 +665,6 @@ export const me = async (
       ...result.rows[0],
     });
   } catch (error) {
-    //    console.log(error);
-
     return next(error);
   } finally {
     client.release();
@@ -693,7 +724,7 @@ export const googleLogin = async (req: Request, res: Response) => {
 
     if (!verified_email) {
       throw new CustomError(
-        "Your google account is not yet verified through google"
+        "Your google account is not yet verified through google",
       );
     }
 
@@ -757,7 +788,7 @@ export const googleLogin = async (req: Request, res: Response) => {
 
       const updateUserResult = await client.query(
         updateUserQuery,
-        updateUserValues
+        updateUserValues,
       );
 
       savedUser = updateUserResult.rows[0];
@@ -780,13 +811,11 @@ export const googleLogin = async (req: Request, res: Response) => {
 
       const createNewUserResult = await client.query(
         createNewUserQuery,
-        createNewUserValues
+        createNewUserValues,
       );
 
       savedUser = createNewUserResult.rows[0];
     }
-
-    //    console.log(savedUser);
 
     const accessToken = generateAccessToken(savedUser.id);
     const refreshToken = generateRefreshToken(savedUser.id);
@@ -795,14 +824,14 @@ export const googleLogin = async (req: Request, res: Response) => {
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY).toISOString();
     const ipAddress =
       req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const userAgent = req.headers["user-agent"];
+    const userAgent = req.headers["user-agent"] as string;
     const isMobile = /mobile/i.test(userAgent);
     const isTablet = /tablet/i.test(userAgent);
     const isDesktop = !isMobile && !isTablet;
     const osMatch = userAgent.match(/\(([^)]+)\)/);
     const osInfo = osMatch ? osMatch[1] : "Unknown OS";
     const browserMatch = userAgent.match(
-      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/
+      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/,
     );
     const browserInfo = browserMatch
       ? `${browserMatch[1]} ${browserMatch[2]}`
@@ -878,14 +907,14 @@ export const googleLogin = async (req: Request, res: Response) => {
       .cookie(REFRESH_TOKEN_NAME, refreshToken, options2)
       .redirect(FRONTEND_BASE_URL);
   } catch (error) {
-    //    console.log(error);
     return res.redirect(
-      `${FRONTEND_BASE_URL}/success-or-error?type=danger&message=${error.message}`
+      `${FRONTEND_BASE_URL}/success-or-error?type=danger&message=${(error as Error).message}`,
     );
   } finally {
     client.release();
   }
 };
+
 export const facebookLogin = async (req: Request, res: Response) => {
   const LOGIN_PLATFORM = "facebook";
   const { code, error } = req.query;
@@ -905,7 +934,7 @@ export const facebookLogin = async (req: Request, res: Response) => {
         headers: {
           Accept: "application/json",
         },
-      }
+      },
     );
 
     const { access_token } = data;
@@ -915,7 +944,7 @@ export const facebookLogin = async (req: Request, res: Response) => {
     }
 
     const { data: userData } = await axios.get(
-      `https://graph.facebook.com/v20.0/me?access_token=${access_token}&fields=id,name,first_name,last_name,email,picture`
+      `https://graph.facebook.com/v20.0/me?access_token=${access_token}&fields=id,name,first_name,last_name,email,picture`,
     );
 
     const { email, first_name, last_name, id: public_id } = userData;
@@ -980,7 +1009,7 @@ export const facebookLogin = async (req: Request, res: Response) => {
 
       const updateUserResult = await client.query(
         updateUserQuery,
-        updateUserValues
+        updateUserValues,
       );
 
       savedUser = updateUserResult.rows[0];
@@ -1003,13 +1032,11 @@ export const facebookLogin = async (req: Request, res: Response) => {
 
       const createNewUserResult = await client.query(
         createNewUserQuery,
-        createNewUserValues
+        createNewUserValues,
       );
 
       savedUser = createNewUserResult.rows[0];
     }
-
-    //    console.log(savedUser);
 
     const accessToken = generateAccessToken(savedUser.id);
     const refreshToken = generateRefreshToken(savedUser.id);
@@ -1018,14 +1045,14 @@ export const facebookLogin = async (req: Request, res: Response) => {
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY).toISOString();
     const ipAddress =
       req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const userAgent = req.headers["user-agent"];
+    const userAgent = req.headers["user-agent"] as string;
     const isMobile = /mobile/i.test(userAgent);
     const isTablet = /tablet/i.test(userAgent);
     const isDesktop = !isMobile && !isTablet;
     const osMatch = userAgent.match(/\(([^)]+)\)/);
     const osInfo = osMatch ? osMatch[1] : "Unknown OS";
     const browserMatch = userAgent.match(
-      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/
+      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/,
     );
     const browserInfo = browserMatch
       ? `${browserMatch[1]} ${browserMatch[2]}`
@@ -1101,14 +1128,14 @@ export const facebookLogin = async (req: Request, res: Response) => {
       .cookie(REFRESH_TOKEN_NAME, refreshToken, options2)
       .redirect(FRONTEND_BASE_URL);
   } catch (error) {
-    //    console.log(error);
     return res.redirect(
-      `${FRONTEND_BASE_URL}/success-or-error?type=danger&message=${error.message}`
+      `${FRONTEND_BASE_URL}/success-or-error?type=danger&message=${(error as Error).message}`,
     );
   } finally {
     client.release();
   }
 };
+
 export const githubLogin = async (req: Request, res: Response) => {
   const LOGIN_PLATFORM = "github";
   const { code, error } = req.query;
@@ -1135,7 +1162,7 @@ export const githubLogin = async (req: Request, res: Response) => {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     const { access_token } = accessTokenData;
@@ -1216,7 +1243,7 @@ export const githubLogin = async (req: Request, res: Response) => {
 
       const updateUserResult = await client.query(
         updateUserQuery,
-        updateUserValues
+        updateUserValues,
       );
 
       savedUser = updateUserResult.rows[0];
@@ -1239,7 +1266,7 @@ export const githubLogin = async (req: Request, res: Response) => {
 
       const createNewUserResult = await client.query(
         createNewUserQuery,
-        createNewUserValues
+        createNewUserValues,
       );
 
       savedUser = createNewUserResult.rows[0];
@@ -1252,14 +1279,14 @@ export const githubLogin = async (req: Request, res: Response) => {
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY).toISOString();
     const ipAddress =
       req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const userAgent = req.headers["user-agent"];
+    const userAgent = req.headers["user-agent"] as string;
     const isMobile = /mobile/i.test(userAgent);
     const isTablet = /tablet/i.test(userAgent);
     const isDesktop = !isMobile && !isTablet;
     const osMatch = userAgent.match(/\(([^)]+)\)/);
     const osInfo = osMatch ? osMatch[1] : "Unknown OS";
     const browserMatch = userAgent.match(
-      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/
+      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/,
     );
     const browserInfo = browserMatch
       ? `${browserMatch[1]} ${browserMatch[2]}`
@@ -1335,14 +1362,14 @@ export const githubLogin = async (req: Request, res: Response) => {
       .cookie(REFRESH_TOKEN_NAME, refreshToken, options2)
       .redirect(FRONTEND_BASE_URL);
   } catch (error) {
-    //    console.log(error);
     return res.redirect(
-      `${FRONTEND_BASE_URL}/success-or-error?type=danger&message=${error.message}`
+      `${FRONTEND_BASE_URL}/success-or-error?type=danger&message=${(error as Error).message}`,
     );
   } finally {
     client.release();
   }
 };
+
 export const linkedinLogin = async (req: Request, res: Response) => {
   const LOGIN_PLATFORM = "linkedin";
   const { code, error } = req.query;
@@ -1357,7 +1384,7 @@ export const linkedinLogin = async (req: Request, res: Response) => {
     }
 
     const { data: accessTokenData } = await axios.get(
-      `https://www.linkedin.com/oauth/v2/accessToken?grant_type=authorization_code&redirect_uri=${LINKEDIN_REDIRECT_URI}&client_id=${LINKEDIN_CLIENT_ID}&client_secret=${LINKEDIN_CLIENT_SECRET}&code=${code}`
+      `https://www.linkedin.com/oauth/v2/accessToken?grant_type=authorization_code&redirect_uri=${LINKEDIN_REDIRECT_URI}&client_id=${LINKEDIN_CLIENT_ID}&client_secret=${LINKEDIN_CLIENT_SECRET}&code=${code}`,
     );
 
     const { access_token } = accessTokenData;
@@ -1369,7 +1396,7 @@ export const linkedinLogin = async (req: Request, res: Response) => {
           Authorization: `Bearer ${access_token}`,
           Accept: `application/json`,
         },
-      }
+      },
     );
 
     const {
@@ -1382,7 +1409,7 @@ export const linkedinLogin = async (req: Request, res: Response) => {
 
     if (!email_verified) {
       throw new CustomError(
-        "Your linkedin account is not yet verified through linkedin"
+        "Your linkedin account is not yet verified through linkedin",
       );
     }
 
@@ -1448,7 +1475,7 @@ export const linkedinLogin = async (req: Request, res: Response) => {
 
       const updateUserResult = await client.query(
         updateUserQuery,
-        updateUserValues
+        updateUserValues,
       );
 
       savedUser = updateUserResult.rows[0];
@@ -1471,7 +1498,7 @@ export const linkedinLogin = async (req: Request, res: Response) => {
 
       const createNewUserResult = await client.query(
         createNewUserQuery,
-        createNewUserValues
+        createNewUserValues,
       );
 
       savedUser = createNewUserResult.rows[0];
@@ -1484,14 +1511,14 @@ export const linkedinLogin = async (req: Request, res: Response) => {
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY).toISOString();
     const ipAddress =
       req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-    const userAgent = req.headers["user-agent"];
+    const userAgent = req.headers["user-agent"] as string;
     const isMobile = /mobile/i.test(userAgent);
     const isTablet = /tablet/i.test(userAgent);
     const isDesktop = !isMobile && !isTablet;
     const osMatch = userAgent.match(/\(([^)]+)\)/);
     const osInfo = osMatch ? osMatch[1] : "Unknown OS";
     const browserMatch = userAgent.match(
-      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/
+      /(Firefox|Chrome|Safari|Opera|Edge|MSIE|Trident)\/?\s*(\d+)/,
     );
     const browserInfo = browserMatch
       ? `${browserMatch[1]} ${browserMatch[2]}`
@@ -1567,9 +1594,8 @@ export const linkedinLogin = async (req: Request, res: Response) => {
       .cookie(REFRESH_TOKEN_NAME, refreshToken, options2)
       .redirect(FRONTEND_BASE_URL);
   } catch (error) {
-    //    console.log(error);
     return res.redirect(
-      `${FRONTEND_BASE_URL}/success-or-error?type=danger&message=${error.message}`
+      `${FRONTEND_BASE_URL}/success-or-error?type=danger&message=${(error as Error).message}`,
     );
   } finally {
     client.release();
@@ -1579,7 +1605,7 @@ export const linkedinLogin = async (req: Request, res: Response) => {
 export const forgetPassword = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const { email } = req.body;
 
@@ -1588,7 +1614,7 @@ export const forgetPassword = async (
     const { errors, valid } = forgetPasswordValidator(email);
 
     if (!valid) {
-      throw new CustomError(errors[Object.keys(errors)[0]], 400);
+      throw new CustomError(getFirstError(errors), 400);
     }
 
     const query = "SELECT * FROM users WHERE email = $1";
@@ -1605,14 +1631,14 @@ export const forgetPassword = async (
     if (!existingUser || !existingUser.isverified) {
       throw new CustomError(
         "If we find your account, We will send a Reset Password Link to your registered email. Please check your email.",
-        404
+        404,
       );
     }
 
     if (existingUser.loginplatform !== "native") {
       throw new CustomError(
         `Please try ${existingUser.loginplatform} login`,
-        401
+        401,
       );
     }
 
@@ -1650,8 +1676,6 @@ export const forgetPassword = async (
         "If we find your account, We will send a Reset Password Link to your registered email. Please check your email.",
     });
   } catch (error) {
-    //    console.log(error);
-
     return next(error);
   } finally {
     client.release();
@@ -1661,7 +1685,7 @@ export const forgetPassword = async (
 export const resetPassword = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const { token, password } = req.body;
 
@@ -1674,12 +1698,12 @@ export const resetPassword = async (
     if (!FORGET_PASSWORD_SECRET) {
       throw new CustomError("secret must be provided to verify token", 500);
     }
-    let verified;
-    let userId;
+    let verified: JwtUserPayload;
+    let userId: string;
     try {
-      verified = jwt.verify(token, FORGET_PASSWORD_SECRET);
+      verified = verifyJwtAsUserPayload(token, FORGET_PASSWORD_SECRET);
     } catch (error) {
-      console.log(error.message);
+      console.log((error as Error).message);
 
       throw new CustomError("Unauthorized", 401);
     }
@@ -1709,7 +1733,7 @@ export const resetPassword = async (
     if (existingUser.loginplatform !== "native") {
       throw new CustomError(
         `Please try ${existingUser.loginplatform} login`,
-        401
+        401,
       );
     }
 
@@ -1729,8 +1753,6 @@ export const resetPassword = async (
       message: "Password Reset Successfull, Please Login",
     });
   } catch (error) {
-    //    console.log(error);
-
     return next(error);
   } finally {
     client.release();
