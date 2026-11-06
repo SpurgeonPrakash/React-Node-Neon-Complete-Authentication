@@ -1,201 +1,336 @@
-MERN (Full Stack Neon Starter kit with complete authentication) Submission for Neon Open Source Starter Kit Challenge
-
-*This is a submission for the [Neon Open Source Starter Kit Challenge ](https://dev.to/challenges/neon): Ultimate Starter Kit*
+# Full-Stack Authentication System – React, Node.js, Express & Neon PostgreSQL
 
 ## Table of Contents
 
-- [Table of Contents](#table-of-contents)
-- [Overview of starter kit](#overview-of-starter-kit)
-- [Why I Choose this stack](#why-i-choose-this-stack)
-- [Running this app locally](#running-this-app-locally)
+- [Overview](#overview)
+- [Technology Stack](#technology-stack)
+- [Running the Project Locally](#running-the-project-locally)
+  - [Backend Setup](#backend-setup)
+  - [Google OAuth Setup](#google-oauth-setup)
+  - [Facebook OAuth Setup](#facebook-oauth-setup)
+  - [GitHub OAuth Setup](#github-oauth-setup)
+  - [LinkedIn OAuth Setup](#linkedin-oauth-setup)
+  - [Neon PostgreSQL Setup](#neon-postgresql-setup)
+  - [SendGrid Setup](#sendgrid-setup)
+  - [Backend Environment Variables](#backend-environment-variables)
+  - [Running the Backend](#running-the-backend)
+  - [Frontend Setup](#frontend-setup)
 - [Key Features](#key-features)
 - [Conclusion](#conclusion)
 
-## Overview of starter kit
+## Overview
 
-This starter kit is perfect for building a TypeScript-supported MERN stack apps (MongoDB, Express, React, Node.js) using NeonDB as the database. This was my first time using NeonDB, and it was a great experience.
+This project is a full-stack authentication system built with **React, Node.js, Express.js, TypeScript, and Neon Serverless PostgreSQL**. It provides a reusable foundation for developing modern web applications with secure and comprehensive authentication functionality.
 
-The kit includes complete frontend and backend code with a secure authentication system. It supports login with email and password or via OAuth (Google, Facebook, GitHub, LinkedIn), using JWT access and refresh tokens stored in HTTP-only cookies. It also provides features for user verification after signup, as well as password reset and recovery. OAuth authentication is implemented from scratch without third-party packages.
+The system supports traditional email and password authentication, as well as social login through Google, Facebook, GitHub, and LinkedIn OAuth providers.
 
-The frontend handles the full authentication flow with both protected and public routes, using React, Redux, React Query, and React Router DOM. The backend, powered by NeonDB (a fast and scalable PostgreSQL database), manages signup, login, OAuth flows, and password reset features, using packages like jsonwebtoken and bcryptjs.
+Authentication is implemented using JWT access and refresh tokens stored in HTTP-only cookies. The system also includes account verification, password recovery, and password reset functionality.
 
-If you're looking to build a TypeScript-supported MERN stack application, I'm confident that this starter kit will become your favorite tool.
+The frontend handles the complete authentication flow, including protected and public routes, using React, Redux, React Query, and React Router DOM.
 
-## Why I Choose this stack
+The backend, powered by Node.js and Express.js, manages user registration, login, OAuth authentication, email verification, and password recovery. Neon Serverless PostgreSQL is used as the database.
 
-I chose this stack because it combines some of the most popular and efficient technologies available today, providing a solid foundation for building scalable and modern web applications. The MERN stack—MongoDB, Express, React, and Node.js—offers a seamless JavaScript development experience from frontend to backend, making it easier to maintain and extend the application. Additionally, using TypeScript adds type safety, which helps catch errors early and improves code quality.
+OAuth authentication is implemented without relying on dedicated third-party OAuth authentication packages, providing a practical understanding of the underlying authentication flow.
 
-For the database, I opted for NeonDB, a fast and scalable PostgreSQL-based solution. It offers the benefits of traditional relational databases, such as strong data consistency and support for complex queries, while also being optimized for performance and scalability, which is essential for modern applications.
+This project is designed to be a reusable starting point for developers who want to integrate a complete authentication system into their React and Node.js applications.
 
-Throughout the process, I learned how to effectively implement secure authentication systems, including OAuth, from scratch, without relying on third-party packages. This deepened my understanding of handling JWT access and refresh tokens securely using HTTP-only cookies. I also gained experience in managing user verification, password recovery, and building robust authentication flows that are both secure and user-friendly.
+## Technology Stack
 
-Using technologies like React Query and Redux for state management, I improved my skills in handling data fetching, caching, and managing application state effectively. Overall, this project provided valuable insights into building full-stack applications that are scalable, secure, and maintainable.
+The project uses the following technologies:
 
-## Running this app locally
+### Frontend
 
-1. First Clone this repository and open in any cli.
-2. Navigate to backend folder(cd backend)
-   - ### Setting Backend
-        In backend folder, run the following command.
-        ```js
-        npm install
-        ```
-   - ### Google OAUTH Setup:
-        Now go to [Google's Console](https://console.cloud.google.com) and create a new project and get client id, client secret. The redirect URL Should be(In Our Case): http://localhost:3005/api/v1/auth/google-oauth
-   - Now In Backend directory, Create a **.env** file. and Save this Client Id, Client Secret along with Redirect URL as shown below:
-        ```js
-            GOOGLE_CLIENT_ID=your-client-id
-            GOOGLE_CLIENT_SECRET=your-client-secret
-            GOOGLE_CLIENT_REDIRECT_URL=http://localhost:3005/api/v1/auth/google-oauth
-        ```
-    - ### Facebook OAuth Setup:
-        1. Go to [Facebook Developer Tools](https://developers.facebook.com/apps) and create a new App and get an app id and app secret. And Provide redirect URL as: http://localhost:3005/api/v1/auth/facebook-oauth if it asks you.
-    - Now In Backend directory, go to **.env** file. and Save this Client Id, Client Secret along with Redirect URL as shown below:
-        ```js
-            FACEBOOK_APP_ID=your-app-id
-            FACEBOOK_APP_SECRET=your-app-secret
-            FACEBOOK_REDIRECT_URI=http://localhost:3005/api/v1/auth/facebook-oauth
-        ``` 
-    - ### Github OAUTH Setup:
-       1. Go to [github settings](https://github.com/settings/developers). And create a new app and get client id and client secret. And Provide redirect URL as: http://localhost:3005/api/v1/auth/github-oauth if it asks you.
-    - Now In Backend directory, go to **.env** file. and Save this Client Id, Client Secret along with Redirect URL as shown below:
-        ```js
-            GITHUB_CLIENT_ID=your-client-id
-            GITHUB_CLIENT_SECRET=your-client-secret
-            GITHUB_REDIRECT_URL=http://localhost:3005/api/v1/auth/github-oauth
-        ```
-    - ### Linkedin OAUTH Setup 
-       1. Go to [Linkedin Developer Tools](https://www.linkedin.com/developers/apps). And create a new app and get client id and client secret. And Provide redirect URL as: http://localhost:3005/api/v1/auth/linkedin-oauth if it asks you. You need to create a Compamny Page for this. ANd its completely free.
-    - Now In Backend directory, go to **.env** file. and Save this Client Id, Client Secret along with Redirect URL as shown below:
-        ```js
-            LINKEDIN_CLIENT_ID=your-client-id
-            LINKEDIN_CLIENT_SECRET=your-client-secret
-            LINKEDIN_REDIRECT_URI=http://localhost:3005/api/v1/auth/linkedin-oauth
-        ``` 
-    - Now In Backend directory, go to **.env** file. and create the following ENV Variables:
-        ```js
-            PORT=3005
-            NODE_ENV=development
+- React
+- TypeScript
+- Redux
+- React Query
+- React Router DOM
 
-            FRONTEND_BASE_URL=http://localhost:5173
+### Backend
 
-            JWT_ACCOUNT_ACTIVATION=random-unique-string
-            ACCESS_TOKEN_SECRET=random-unique-string
-            REFRESH_TOKEN_SECRET=random-unique-string
-            FORGET_PASSWORD_SECRET=random-unique-string
+- Node.js
+- Express.js
+- TypeScript
+- JSON Web Tokens (JWT)
+- bcryptjs
 
-        ```
-    - ### SendGrid Setup
-        Login to [SendGrid](https://login.sendgrid.com/login/identifier) and obtain a new sendgrid-api-key. You need to create a verified sender there.
-    - Now In Backend directory, go to **.env** file. and create the following ENV Variables:
-        ```js
-            MAIL_FROM=mail-of-the-verified-sender
-            SENDGRID_API_KEY=your-api-key
-        ```
-    - ### Neon DB Setup
-        Login to [Neon DB](https://console.neon.tech/app/projects) and create a project(1 project is free to create). And It will give you few db details. Make sure you are in node-postgres tab and add them to env variables
-    - Now In Backend directory, go to **.env** file. and create the following ENV Variables:
-        ```js
-            PGHOST=your-pg-host
-            PGDATABASE=your-pg-database
-            PGUSER=your-pg-user
-            PGPASSWORD=your-pg-password
-            ENDPOINT_ID=your-pg-endpoint-id
-        ```
-    - After Doing all that, your **.env** file within backend directory should look like this:
-        ```js
-            PORT=3005
-            NODE_ENV=development
+### Database
 
-            # DB:
-            PGHOST='your-pg-host'
-            PGDATABASE='your-pg-database'
-            PGUSER='your-pg-user'
-            PGPASSWORD='your-pg-password'
-            ENDPOINT_ID='your-pg-endpoint'
+- Neon Serverless PostgreSQL
+- PostgreSQL
 
-            #END_POINTS
-            FRONTEND_BASE_URL=http://localhost:5173
+### Authentication
 
-            #JWT:
+- Email and password authentication
+- Google OAuth
+- Facebook OAuth
+- GitHub OAuth
+- LinkedIn OAuth
+- JWT access and refresh tokens
+- HTTP-only cookies
 
-            JWT_ACCOUNT_ACTIVATION=random-unique-secret
-            ACCESS_TOKEN_SECRET=frandom-unique-secret
-            REFRESH_TOKEN_SECRET=random-unique-secret
-            FORGET_PASSWORD_SECRET=random-unique-secret
+### Email Services
 
-            #EMAIL:
-            MAIL_FROM=your-sender-email
-            SENDGRID_API_KEY=your-api-key
+- SendGrid
 
-            # Oauth:
-            #Google
-            GOOGLE_CLIENT_ID=your-client-id
-            GOOGLE_CLIENT_SECRET=your-client-secret
-            GOOGLE_CLIENT_REDIRECT_URL=http://localhost:3005/api/v1/auth/google-oauth
-            ## Facebook
-            FACEBOOK_APP_ID=your-app-id
-            FACEBOOK_APP_SECRET=your-app-secret
-            FACEBOOK_REDIRECT_URI=http://localhost:3005/api/v1/auth/facebook-oauth
-            ## GitHub
-            GITHUB_CLIENT_ID=your-client-id
-            GITHUB_CLIENT_SECRET=your-client-secret
-            GITHUB_REDIRECT_URL=http://localhost:3005/api/v1/auth/github-oauth
-            ## Linkedin
-            LINKEDIN_CLIENT_ID=your-client-id
-            LINKEDIN_CLIENT_SECRET=your-client-secret
-            LINKEDIN_REDIRECT_URI=http://localhost:3005/api/v1/auth/linkedin-oauth
-        ```
-    - ### Building the app
-        Within backend folder run the following command:
-        ```js
-            npm run build
-        ```
-    - ### Running the app
-        Within backend folder run the following command:
-        ```js
-            npm run dev
-        ```
-    - Voila your backend Started Successfully
-    - ### Setting Frontend
-        In another terminal, Now go into frontend folder: cd ../frontend
-    - Create a .env in frontend folder and add the following env variables:
-        ```js
-            VITE_BACKEND_BASE_URL=http://localhost:3005/api/v1
+## Running the Project Locally
 
-            # Oauth:
-            #Google
-            VITE_GOOGLE_CLIENT_ID=your-client-id
-            VITE_GOOGLE_CLIENT_SECRET=your-client-secret
-            VITE_GOOGLE_CLIENT_REDIRECT_URL=http://localhost:3005/api/v1/auth/google-oauth
-            ## Facebook
-            VITE_FACEBOOK_APP_ID=your-app-id
-            VITE_FACEBOOK_APP_SECRET=your-app-secret
-            VITE_FACEBOOK_REDIRECT_URI=http://localhost:3005/api/v1/auth/facebook-oauth
-            ## GitHub
-            VITE_GITHUB_CLIENT_ID=your-client-id
-            VITE_GITHUB_CLIENT_SECRET=your-client-secret
-            VITE_GITHUB_REDIRECT_URL=http://localhost:3005/api/v1/auth/github-oauth
-            ## Linkedin
-            VITE_LINKEDIN_CLIENT_ID=your-client-id
-            VITE_LINKEDIN_CLIENT_SECRET=your-client-secret
-            VITE_LINKEDIN_REDIRECT_URI=http://localhost:3005/api/v1/auth/linkedin-oauth
-        ```
-    - You can run the below command to start the frontend project
-    ```js
-        npm run dev
-    ```
+Follow these instructions to set up and run the project on your local machine.
+
+### Backend Setup
+
+1. Clone this repository and open it in your preferred code editor or terminal.
+
+2. Navigate to the backend directory:
+
+```bash
+cd backend
+```
+
+3. Install the dependencies:
+
+```bash
+npm install
+```
+
+### Google OAuth Setup
+
+1. Visit [Google Cloud Console](https://console.cloud.google.com).
+2. Create a new project and configure OAuth credentials.
+3. Obtain your Client ID and Client Secret.
+4. Configure the authorized redirect URI:
+
+```text
+http://localhost:3005/api/v1/auth/google-oauth
+```
+
+5. Add the following environment variables to your backend `.env` file:
+
+```env
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_CLIENT_REDIRECT_URL=http://localhost:3005/api/v1/auth/google-oauth
+```
+
+### Facebook OAuth Setup
+
+1. Visit [Facebook Developer Tools](https://developers.facebook.com/apps).
+2. Create a new application.
+3. Obtain your App ID and App Secret.
+4. Configure the OAuth redirect URI:
+
+```text
+http://localhost:3005/api/v1/auth/facebook-oauth
+```
+
+5. Add the following environment variables to your backend `.env` file:
+
+```env
+FACEBOOK_APP_ID=your-app-id
+FACEBOOK_APP_SECRET=your-app-secret
+FACEBOOK_REDIRECT_URI=http://localhost:3005/api/v1/auth/facebook-oauth
+```
+
+### GitHub OAuth Setup
+
+1. Visit [GitHub Developer Settings](https://github.com/settings/developers).
+2. Create a new OAuth application.
+3. Obtain your Client ID and Client Secret.
+4. Configure the authorization callback URL:
+
+```text
+http://localhost:3005/api/v1/auth/github-oauth
+```
+
+5. Add the following environment variables to your backend `.env` file:
+
+```env
+GITHUB_CLIENT_ID=your-client-id
+GITHUB_CLIENT_SECRET=your-client-secret
+GITHUB_REDIRECT_URL=http://localhost:3005/api/v1/auth/github-oauth
+```
+
+### LinkedIn OAuth Setup
+
+1. Visit [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps).
+2. Create a new application.
+3. Configure the required OAuth permissions.
+4. Obtain your Client ID and Client Secret.
+5. Configure the authorized redirect URL:
+
+```text
+http://localhost:3005/api/v1/auth/linkedin-oauth
+```
+
+6. Add the following environment variables to your backend `.env` file:
+
+```env
+LINKEDIN_CLIENT_ID=your-client-id
+LINKEDIN_CLIENT_SECRET=your-client-secret
+LINKEDIN_REDIRECT_URI=http://localhost:3005/api/v1/auth/linkedin-oauth
+```
+
+Make sure all configured callback URLs match the actual OAuth routes in your backend.
+
+### Neon PostgreSQL Setup
+
+1. Visit [Neon Console](https://console.neon.tech).
+2. Create a new Neon project.
+3. Create or select a PostgreSQL database.
+4. Obtain your PostgreSQL connection details.
+5. Add the following environment variables to your backend `.env` file:
+
+```env
+PGHOST=your-pg-host
+PGDATABASE=your-pg-database
+PGUSER=your-pg-user
+PGPASSWORD=your-pg-password
+ENDPOINT_ID=your-pg-endpoint-id
+```
+
+### SendGrid Setup
+
+This project uses SendGrid for sending account verification and password recovery emails.
+
+1. Visit [SendGrid](https://login.sendgrid.com/login/identifier).
+2. Create an account.
+3. Generate a SendGrid API key.
+4. Configure and verify a sender email address.
+5. Add the following environment variables to your backend `.env` file:
+
+```env
+MAIL_FROM=your-verified-sender-email
+SENDGRID_API_KEY=your-api-key
+```
+
+### Backend Environment Variables
+
+Create a `.env` file inside the backend directory.
+
+Your backend environment configuration should look similar to this:
+
+```env
+PORT=3005
+NODE_ENV=development
+
+# Database
+PGHOST=your-pg-host
+PGDATABASE=your-pg-database
+PGUSER=your-pg-user
+PGPASSWORD=your-pg-password
+ENDPOINT_ID=your-pg-endpoint-id
+
+# Frontend
+FRONTEND_BASE_URL=http://localhost:5173
+
+# JWT Secrets
+JWT_ACCOUNT_ACTIVATION=your-unique-secret
+ACCESS_TOKEN_SECRET=your-unique-secret
+REFRESH_TOKEN_SECRET=your-unique-secret
+FORGET_PASSWORD_SECRET=your-unique-secret
+
+# Email
+MAIL_FROM=your-verified-sender-email
+SENDGRID_API_KEY=your-api-key
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_CLIENT_REDIRECT_URL=http://localhost:3005/api/v1/auth/google-oauth
+
+# Facebook OAuth
+FACEBOOK_APP_ID=your-app-id
+FACEBOOK_APP_SECRET=your-app-secret
+FACEBOOK_REDIRECT_URI=http://localhost:3005/api/v1/auth/facebook-oauth
+
+# GitHub OAuth
+GITHUB_CLIENT_ID=your-client-id
+GITHUB_CLIENT_SECRET=your-client-secret
+GITHUB_REDIRECT_URL=http://localhost:3005/api/v1/auth/github-oauth
+
+# LinkedIn OAuth
+LINKEDIN_CLIENT_ID=your-client-id
+LINKEDIN_CLIENT_SECRET=your-client-secret
+LINKEDIN_REDIRECT_URI=http://localhost:3005/api/v1/auth/linkedin-oauth
+```
+
+Use strong, unique secrets for all JWT-related environment variables. Never commit your `.env` file to version control or expose OAuth client secrets in frontend environment variables.
+
+### Running the Backend
+
+To build the backend, run:
+
+```bash
+npm run build
+```
+
+To start the backend in development mode, run:
+
+```bash
+npm run dev
+```
+
+The backend should now be running at:
+
+```text
+http://localhost:3005
+```
+
+### Frontend Setup
+
+Open another terminal and navigate to the frontend directory:
+
+```bash
+cd frontend
+```
+
+Install the dependencies:
+
+```bash
+npm install
+```
+
+Create a `.env` file inside the frontend directory and add the following environment variable:
+
+```env
+VITE_BACKEND_BASE_URL=http://localhost:3005/api/v1
+```
+
+OAuth client secrets must remain on the backend. The frontend should initiate OAuth flows through backend endpoints rather than exposing provider secrets.
+
+Start the frontend development server:
+
+```bash
+npm run dev
+```
+
+The frontend should now be available at:
+
+```text
+http://localhost:5173
+```
 
 ## Key Features
-    1. Users can Signup using email and password (or) Google OAuth (or) Facebook OAUth (or) GitHub OAuth (or) Linkedin OAuth.
-    2. Users Who Signed Up needs to verify their accounts
-    3. Users can Login Using email and password (or) Google OAuth (or) Facebook OAUth (or) GitHub OAuth (or) Linkedin OAuth.
-    4. Users Can Reset Their Password
+
+1. **User Registration:** Users can create accounts using their email address and password.
+2. **Email Verification:** Newly registered users can verify their accounts through email.
+3. **User Login:** Secure authentication using email and password.
+4. **Social Authentication:** Sign in or register using Google, Facebook, GitHub, and LinkedIn.
+5. **JWT Authentication:** Access and refresh token-based authentication.
+6. **HTTP-only Cookies:** Secure token storage using HTTP-only cookies.
+7. **Protected Routes:** Restrict access to authenticated users.
+8. **Password Recovery:** Users can request password reset links through email.
+9. **Password Reset:** Users can securely reset their passwords.
+10. **Session Management:** Refresh access tokens and manage authenticated sessions.
+11. **Authentication State Management:** Manage application authentication state using Redux and React Query.
+12. **OAuth Integration:** Social authentication flows implemented without dedicated third-party OAuth authentication packages.
 
 ## Conclusion
 
-This starter kit provides a strong foundation for building MERN stack applications with secure and scalable authentication. By integrating MongoDB, Express, React, and Node.js, it offers a full-stack JavaScript development environment, making the development process smooth and consistent. With features like JWT-based access and refresh tokens, along with support for OAuth providers such as Google, Facebook, GitHub, and LinkedIn, this kit ensures a secure and user-friendly authentication experience. Using NeonDB as a serverless database solution enhances scalability and performance, making it a great choice for modern web applications. This starter kit is a valuable tool for developers looking to build reliable, scalable, and secure applications.
+This project provides a reusable foundation for implementing a complete authentication system in modern full-stack web applications.
 
+By combining React, Node.js, Express.js, TypeScript, and Neon Serverless PostgreSQL, it brings together frontend authentication flows, backend security, database management, and social login integrations in one solution.
 
+With features such as JWT-based authentication, HTTP-only cookie storage, email verification, password recovery, and multiple OAuth providers, developers can use this project as a starting point for building secure and maintainable applications.
 
-
+Whether you are developing a portfolio platform, SaaS application, dashboard, or any other web application, this authentication system can help simplify the implementation of user authentication and account management.
